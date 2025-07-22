@@ -1,4 +1,5 @@
 mod language_server;
+mod workspace;
 
 use clap::Parser;
 use tower_lsp_server::{LspService, Server};
@@ -25,7 +26,11 @@ async fn main() {
 
     let stdin = tokio::io::stdin();
     let stdout = tokio::io::stdout();
-    let (service, socket) = LspService::new(|client| TempestLanguageServer { client });
+
+    let mut parser = tree_sitter::Parser::new();
+    parser.set_language(&tree_sitter_php::LANGUAGE_PHP.into()).unwrap();
+
+    let (service, socket) = LspService::new(|client| TempestLanguageServer { client, parser });
 
     Server::new(stdin, stdout, socket).serve(service).await;
 }

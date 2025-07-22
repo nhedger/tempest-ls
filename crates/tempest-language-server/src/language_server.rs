@@ -1,9 +1,10 @@
 use lsp_types::{InitializeParams, InitializeResult, InitializedParams, MessageType};
 use tower_lsp_server::{Client, LanguageServer};
 use tower_lsp_server::jsonrpc::Result;
+use tree_sitter::Parser;
 
-#[derive(Debug)]
 pub struct TempestLanguageServer {
+    pub(crate) parser: Parser,
     pub(crate) client: Client,
 }
 
