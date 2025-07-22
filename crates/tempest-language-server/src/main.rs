@@ -1,4 +1,8 @@
+mod language_server;
+
 use clap::Parser;
+use tower_lsp_server::{LspService, Server};
+use crate::language_server::TempestLanguageServer;
 
 #[derive(Parser, Debug)]
 #[command(
@@ -8,19 +12,20 @@ use clap::Parser;
 )]
 struct Cli {
     /// Use stdio as the communication channel
+    /// This does nothing for now, we always use stdio
     #[arg(long, conflicts_with_all = ["pipe", "socket"])]
     stdio: bool,
-
-    /// Use a pipe (windows) or a socket file (unix) as the communication channel
-    #[arg(long, conflicts_with_all = ["stdio", "socket"])]
-    pipe: bool,
-
-    /// Use a socket as the communication channel
-    #[arg(long, conflicts_with_all = ["stdio", "pipe"])]
-    socket: u16,
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let _args = Cli::parse();
+
     println!("Starting tempest language server...");
+
+    let stdin = tokio::io::stdin();
+    let stdout = tokio::io::stdout();
+    let (service, socket) = LspService::new(|client| TempestLanguageServer { client });
+
+    Server::new(stdin, stdout, socket).serve(service).await;
 }
