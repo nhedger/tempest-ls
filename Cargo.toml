@@ -1,0 +1,16 @@
+[workspace]
+resolver = "3"
+members = ["crates/tempest-language-server"]
+
+[workspace.package]
+version = "0.1.0"
+authors = ["Nicolas Hedger <nicolas@hedger.ch>"]
+edition = "2024"
+homepage = "https://github.com/nhedger/tempest-ls"
+repository = "https://github.com/nhedger/tempest-ls"
+license = "MIT OR Apache-2.0"
+keywords = ["tempest", "language-server", "lsp"]
+categories = ["development-tools", "programming-languages"]
+
+[workspace.dependencies]
+camino = "1.1.10"

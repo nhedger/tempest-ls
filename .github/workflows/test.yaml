@@ -1,0 +1,38 @@
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+      branches: [main]
+  workflow_dispatch:
+
+jobs:
+
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        run: rustup default stable
+
+      - name: Run tests
+        run: cargo test --verbose
+
+  lint:
+    name: Run Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        run: rustup override set stable
+
+      - name: Run Clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings

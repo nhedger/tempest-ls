@@ -1,0 +1,21 @@
+[package]
+edition.workspace = true
+publish = false
+name = "tempest-language-server"
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+keywords.workspace = true
+repository.workspace = true
+categories.workspace = true
+homepage.workspace = true
+
+[[bin]]
+name = "tempest-ls"
+path = "src/main.rs"
+
+[dependencies]
+camino = { workspace = true}
+clap = { version = "4.5.41", features = ["derive"] }
+lsp-types = "0.97.0"
+tower-lsp-server = "0.22.0"
