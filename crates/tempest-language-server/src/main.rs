@@ -17,7 +17,7 @@ struct Cli {
 
     /// Use a socket as the communication channel
     #[arg(long, conflicts_with_all = ["stdio", "pipe"])]
-    socket: u8,
+    socket: u16,
 }
 
 fn main() {
