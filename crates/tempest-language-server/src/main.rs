@@ -13,7 +13,7 @@ use crate::language_server::TempestLanguageServer;
 struct Cli {
     /// Use stdio as the communication channel
     /// This does nothing for now, we always use stdio
-    #[arg(long, conflicts_with_all = ["pipe", "socket"])]
+    #[arg(long)]
     stdio: bool,
 }
 
