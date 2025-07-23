@@ -1,0 +1,15 @@
+[package]
+name = "tempest-php-parser"
+edition = "2024"
+version.workspace = true
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+thiserror = "2.0.12"
+tree-sitter = "0.25.8"
+tree-sitter-php = "0.23.11"
