@@ -1,9 +1,9 @@
-mod language_server;
 mod document;
+mod language_server;
 
+use crate::language_server::TempestLanguageServer;
 use clap::Parser;
 use tower_lsp_server::{LspService, Server};
-use crate::language_server::TempestLanguageServer;
 
 #[derive(Parser, Debug)]
 #[command(
@@ -25,7 +25,7 @@ async fn main() {
     let stdin = tokio::io::stdin();
     let stdout = tokio::io::stdout();
 
-    let (service, socket) = LspService::new(|client| TempestLanguageServer::new(client));
+    let (service, socket) = LspService::new(TempestLanguageServer::new);
 
     Server::new(stdin, stdout, socket).serve(service).await;
 }
