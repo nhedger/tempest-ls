@@ -1,6 +1,6 @@
 use std::sync::Mutex;
-use tree_sitter::{Parser, Tree};
 use thiserror::Error;
+use tree_sitter::{Parser, Tree};
 
 #[derive(Error, Debug)]
 pub enum PhpParserError {
@@ -15,28 +15,40 @@ pub enum PhpParserError {
 }
 
 pub struct PhpParser {
-    parser: Mutex<Parser>
+    parser: Mutex<Parser>,
 }
 
 impl PhpParser {
     pub fn new() -> Result<Self, PhpParserError> {
         let mut parser = Parser::new();
 
-        if parser.set_language(&tree_sitter_php::LANGUAGE_PHP.into()).is_err() {
-            return Err(PhpParserError::UnableToInitialize("Unable to create parser for PHP".to_string()))
+        if parser
+            .set_language(&tree_sitter_php::LANGUAGE_PHP.into())
+            .is_err()
+        {
+            return Err(PhpParserError::UnableToInitialize(
+                "Unable to create parser for PHP".to_string(),
+            ));
         }
 
         Ok(Self {
-            parser: Mutex::new(parser)
+            parser: Mutex::new(parser),
         })
     }
 
-    pub fn parse(&self, source_code: &str, old_tree: Option<&Tree>) -> Result<Tree, PhpParserError> {
-
+    pub fn parse(
+        &self,
+        source_code: &str,
+        old_tree: Option<&Tree>,
+    ) -> Result<Tree, PhpParserError> {
         // Acquire a lock on the parser
         let mut parser = match self.parser.lock() {
             Ok(parser) => parser,
-            Err(_) => return Err(PhpParserError::UnableToAcquireLock("Could not get a lock on the parser".to_string())),
+            Err(_) => {
+                return Err(PhpParserError::UnableToAcquireLock(
+                    "Could not get a lock on the parser".to_string(),
+                ));
+            }
         };
 
         // Parse the source code

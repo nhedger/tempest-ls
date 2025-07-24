@@ -1,6 +1,11 @@
 use crate::document::Document;
+use crate::view_intelligence::ViewIntelligence;
 use dashmap::DashMap;
-use lsp_types::{DidCloseTextDocumentParams, DidOpenTextDocumentParams, InitializeParams, InitializeResult, InitializedParams, MessageType, ServerCapabilities, ServerInfo, TextDocumentItem, TextDocumentSyncCapability, TextDocumentSyncOptions, Uri};
+use lsp_types::{
+    DidCloseTextDocumentParams, DidOpenTextDocumentParams, InitializeParams, InitializeResult,
+    InitializedParams, MessageType, ServerCapabilities, ServerInfo, TextDocumentItem,
+    TextDocumentSyncCapability, TextDocumentSyncOptions, Uri,
+};
 use std::process::exit;
 use tempest_php_parser::PhpParser;
 use tower_lsp_server::jsonrpc::Result;
@@ -17,9 +22,7 @@ impl TempestLanguageServer {
     pub fn new(client: Client) -> Self {
         let parser = match PhpParser::new() {
             Ok(parser) => parser,
-            Err(e) => {
-                exit(1)
-            }
+            Err(_) => exit(1),
         };
 
         Self {
@@ -33,25 +36,24 @@ impl TempestLanguageServer {
     ///
     /// This function will parse the document and store it in the server's internal list of documents.
     pub async fn register_document(&self, text_document: TextDocumentItem) {
-        
         // If the document is not a PHP file, skip
         if text_document.language_id != "php" && text_document.language_id != "tempest-view" {
             self.client
                 .log_message(
                     MessageType::WARNING,
-                    format!("Skipping non-PHP document: {}", text_document.uri.to_string()),
+                    format!("Skipping non-PHP document: {}", *text_document.uri),
                 )
                 .await;
             return;
         }
-        
+
         let parsed = match self.parser.parse(&text_document.text, None) {
             Ok(tree) => tree,
             Err(_) => {
                 self.client
                     .log_message(
                         MessageType::ERROR,
-                        format!("Could not parse document: {}", text_document.uri.to_string()),
+                        format!("Could not parse document: {}", *text_document.uri),
                     )
                     .await;
                 return;
@@ -60,20 +62,32 @@ impl TempestLanguageServer {
 
         let document = Document {
             uri: text_document.uri.clone(),
-            text: text_document.text,
-            tree: parsed.clone(),
+            text: text_document.text.clone(),
+            tree: parsed,
             version: text_document.version,
         };
-
-        self.documents.insert(text_document.uri.clone(), document);
 
         self.client
             .log_message(
                 MessageType::INFO,
-                format!("Registered document {}, parsed as:\n\n {}", text_document.uri.to_string(), parsed.root_node().to_sexp()),
+                format!(
+                    "Registered document {}, parsed as:\n\n {}",
+                    *text_document.uri,
+                    document.tree.root_node().to_sexp()
+                ),
             )
             .await;
 
+        // Analyze the document for Tempest view() calls
+        ViewIntelligence::analyze_document(
+            &self.client,
+            &document.tree,
+            &document.text,
+            &text_document.uri.to_string(),
+        )
+        .await;
+
+        self.documents.insert(text_document.uri.clone(), document);
     }
 
     /// Unregister a document from the server
@@ -82,7 +96,9 @@ impl TempestLanguageServer {
     pub async fn unregister_document(&self, uri: Uri) {
         self.documents.remove(&uri);
 
-        self.client.log_message(MessageType::INFO, format!("Unregistered document {}", uri.to_string())).await;
+        self.client
+            .log_message(MessageType::INFO, format!("Unregistered document {}", *uri))
+            .await;
     }
 }
 
@@ -102,7 +118,7 @@ impl LanguageServer for TempestLanguageServer {
                     },
                 )),
                 ..ServerCapabilities::default()
-            }
+            },
         })
     }
 
