@@ -114,18 +114,32 @@ impl ViewImportType {
 }
 
 #[derive(Debug, Clone)]
+pub struct ViewParameter {
+    pub name: Option<String>,
+    pub value: String,
+    pub raw_text: String,
+}
+
+#[derive(Debug, Clone)]
 pub struct ViewCall {
     pub function_name: String,
     pub line: usize,
     pub text: String,
+    pub parameters: Vec<ViewParameter>,
 }
 
 impl ViewCall {
-    pub fn new(function_name: String, line: usize, text: String) -> Self {
+    pub fn with_parameters(
+        function_name: String,
+        line: usize,
+        text: String,
+        parameters: Vec<ViewParameter>,
+    ) -> Self {
         Self {
             function_name,
             line,
             text,
+            parameters,
         }
     }
 }
@@ -227,13 +241,13 @@ impl ImportAnalyzer {
         if AstTraversal::find_child_by_kind(node, "function").is_some() {
             return Ok(true);
         }
-        
+
         if let Some(clause_node) = AstTraversal::find_child_by_kind(node, "namespace_use_clause") {
             if let Ok(clause_text) = AstTraversal::extract_node_text(&clause_node, text) {
                 return Ok(clause_text.trim_start().starts_with("function"));
             }
         }
-        
+
         Ok(false)
     }
 
@@ -293,28 +307,26 @@ impl ImportAnalyzer {
         let mut namespace = String::new();
         let mut found_view = false;
 
-        AstTraversal::traverse_children(node, |child| {
-            match child.kind() {
-                "qualified_name" => {
-                    if let Ok(parts) = Self::extract_qualified_name_parts(child, text) {
-                        if let Some(first_part) = parts.first() {
-                            namespace = first_part.clone();
-                        }
+        AstTraversal::traverse_children(node, |child| match child.kind() {
+            "qualified_name" => {
+                if let Ok(parts) = Self::extract_qualified_name_parts(child, text) {
+                    if let Some(first_part) = parts.first() {
+                        namespace = first_part.clone();
                     }
                 }
-                "namespace_use_clause" => {
-                    AstTraversal::traverse_children(child, |clause_child| {
-                        if clause_child.kind() == "name" {
-                            if let Ok(name) = AstTraversal::extract_node_text(clause_child, text) {
-                                if name == "view" {
-                                    found_view = true;
-                                }
+            }
+            "namespace_use_clause" => {
+                AstTraversal::traverse_children(child, |clause_child| {
+                    if clause_child.kind() == "name" {
+                        if let Ok(name) = AstTraversal::extract_node_text(clause_child, text) {
+                            if name == "view" {
+                                found_view = true;
                             }
                         }
-                    });
-                }
-                _ => {}
+                    }
+                });
             }
+            _ => {}
         });
 
         if !found_view {
@@ -396,7 +408,73 @@ impl FunctionCallAnalyzer {
         let line = node.start_position().row + 1;
         let call_text = AstTraversal::extract_node_text(node, text)?;
 
-        Ok(ViewCall::new(function_name, line, call_text))
+        let parameters = Self::parse_function_parameters(node, text)?;
+
+        Ok(ViewCall::with_parameters(
+            function_name,
+            line,
+            call_text,
+            parameters,
+        ))
+    }
+
+    fn parse_function_parameters(node: &Node, text: &str) -> Result<Vec<ViewParameter>> {
+        let mut parameters = Vec::new();
+
+        if let Some(arguments_node) = node.child_by_field_name("arguments") {
+            AstTraversal::traverse_children(&arguments_node, |child| {
+                if child.kind() == "argument" {
+                    if let Ok(param) = Self::parse_single_argument(child, text) {
+                        parameters.push(param);
+                    }
+                }
+            });
+        }
+
+        Ok(parameters)
+    }
+
+    fn parse_single_argument(node: &Node, text: &str) -> Result<ViewParameter> {
+        let raw_text = AstTraversal::extract_node_text(node, text)?;
+
+        if let Some(name_node) = node.child_by_field_name("name") {
+            let name = AstTraversal::extract_node_text(&name_node, text)?;
+
+            let mut value_parts = Vec::new();
+            let mut cursor = node.walk();
+            if cursor.goto_first_child() {
+                loop {
+                    let child = cursor.node();
+                    if cursor.field_name() != Some("name")
+                        && !child.kind().contains(':')
+                        && child.kind() != ":"
+                        && (child.child_count() > 0
+                            || !child.kind().chars().all(|c| c.is_ascii_punctuation()))
+                    {
+                        if let Ok(child_text) = AstTraversal::extract_node_text(&child, text) {
+                            value_parts.push(child_text);
+                        }
+                    }
+                    if !cursor.goto_next_sibling() {
+                        break;
+                    }
+                }
+            }
+
+            let value = value_parts.join(" ");
+            return Ok(ViewParameter {
+                name: Some(name),
+                value,
+                raw_text,
+            });
+        }
+
+        let value = raw_text.clone();
+        Ok(ViewParameter {
+            name: None,
+            value,
+            raw_text,
+        })
     }
 }
 
@@ -430,6 +508,26 @@ impl ViewAnalysisFormatter {
                     ),
                 )
                 .await;
+
+            for (i, param) in call.parameters.iter().enumerate() {
+                let param_info = match &param.name {
+                    Some(name) => format!("named parameter '{}' = {}", name, param.value),
+                    None => format!("positional parameter [{}] = {}", i, param.value),
+                };
+
+                client
+                    .log_message(
+                        MessageType::INFO,
+                        format!("  Parameter: {} (raw: '{}')", param_info, param.raw_text),
+                    )
+                    .await;
+            }
+
+            if call.parameters.is_empty() {
+                client
+                    .log_message(MessageType::INFO, "  No parameters found".to_string())
+                    .await;
+            }
         }
 
         if result.call_count() > 0 {
@@ -486,12 +584,7 @@ impl ViewAnalysisFormatter {
 pub struct ViewIntelligence;
 
 impl ViewIntelligence {
-    pub async fn analyze_document(
-        client: &Client,
-        tree: &Tree,
-        text: &str,
-        uri: &str,
-    ) {
+    pub async fn analyze_document(client: &Client, tree: &Tree, text: &str, uri: &str) {
         let mut result = ViewAnalysisResult::new();
 
         match ImportAnalyzer::analyze_imports(tree, text) {
@@ -527,7 +620,6 @@ impl ViewIntelligence {
 
         ViewAnalysisFormatter::log_analysis_results(client, &result, uri).await;
     }
-
 }
 
 #[cfg(test)]
@@ -580,6 +672,9 @@ final readonly class HomeController
         assert_eq!(calls.len(), 2);
         assert_eq!(calls[0].function_name, "Tempest\\view");
         assert_eq!(calls[1].function_name, "\\Tempest\\view");
+
+        assert_eq!(calls[0].parameters.len(), 1);
+        assert_eq!(calls[1].parameters.len(), 1);
     }
 
     #[test]
@@ -748,5 +843,97 @@ final readonly class HomeController
         assert!(call_names.contains(&"render"));
         assert!(call_names.contains(&"Tempest\\view"));
         assert!(call_names.contains(&"\\Tempest\\view"));
+    }
+
+    #[test]
+    fn test_parameter_parsing() {
+        let code = r#"<?php
+namespace My\Namespace\Controllers;
+
+use function Tempest\view;
+
+final readonly class HomeController
+{
+    public function simple(): View
+    {
+        return view('template.view.php');
+    }
+    
+    public function withData(): View
+    {
+        return view('template.view.php', ['key' => 'value']);
+    }
+    
+    public function complex(): View
+    {
+        return view(
+            __DIR__ . '/../Views/home.view.php',
+            $this->getData(),
+            $options
+        );
+    }
+}"#;
+
+        let calls = analyze_calls_sync(code).unwrap();
+
+        let view_calls: Vec<_> = calls
+            .into_iter()
+            .filter(|call| call.function_name == "view")
+            .collect();
+
+        assert_eq!(view_calls.len(), 3);
+
+        assert_eq!(view_calls[0].parameters.len(), 1);
+        assert_eq!(view_calls[0].parameters[0].value, "'template.view.php'");
+        assert!(view_calls[0].parameters[0].name.is_none());
+
+        assert_eq!(view_calls[1].parameters.len(), 2);
+        assert_eq!(view_calls[1].parameters[0].value, "'template.view.php'");
+        assert_eq!(view_calls[1].parameters[1].value, "['key' => 'value']");
+
+        assert_eq!(view_calls[2].parameters.len(), 3);
+        assert_eq!(
+            view_calls[2].parameters[0].value,
+            "__DIR__ . '/../Views/home.view.php'"
+        );
+        assert_eq!(view_calls[2].parameters[1].value, "$this->getData()");
+        assert_eq!(view_calls[2].parameters[2].value, "$options");
+    }
+
+    #[test]
+    fn test_named_parameter_parsing() {
+        let code = r#"<?php
+namespace Happytodev\Cyclone\Controllers;
+
+use Tempest\View\View;
+use function Tempest\{root_path, view};
+
+final readonly class HomeController
+{
+    public function __invoke(): View
+    {
+        return view(path: __DIR__ . '/../Views/home.view.php');
+    }
+}"#;
+
+        let calls = analyze_calls_sync(code).unwrap();
+
+        let view_calls: Vec<_> = calls
+            .into_iter()
+            .filter(|call| call.function_name == "view")
+            .collect();
+
+        assert_eq!(view_calls.len(), 1);
+        assert_eq!(view_calls[0].parameters.len(), 1);
+
+        assert_eq!(view_calls[0].parameters[0].name, Some("path".to_string()));
+        assert_eq!(
+            view_calls[0].parameters[0].value,
+            "__DIR__ . '/../Views/home.view.php'"
+        );
+        assert_eq!(
+            view_calls[0].parameters[0].raw_text,
+            "path: __DIR__ . '/../Views/home.view.php'"
+        );
     }
 }
