@@ -1,6 +1,5 @@
 mod document;
 mod language_server;
-mod view_intelligence;
 
 use crate::language_server::TempestLanguageServer;
 use clap::Parser;

@@ -1,0 +1,16 @@
+[package]
+name = "tempest-view-intelligence"
+edition = "2024"
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+keywords.workspace = true
+repository.workspace = true
+categories.workspace = true
+homepage.workspace = true
+
+[dependencies]
+lsp-types = "0.97.0"
+tower-lsp-server = "0.22.0"
+tree-sitter = "0.25.8"
+tempest-php-parser = { path = "../tempest-php-parser" }

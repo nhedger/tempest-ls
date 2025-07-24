@@ -1,6 +1,6 @@
-use crate::view_intelligence::call_analyzer::FunctionCallAnalyzer;
-use crate::view_intelligence::import_analyzer::ImportAnalyzer;
-use crate::view_intelligence::types::{Result, ViewAnalysisError, ViewCall, ViewImportType};
+use crate::call_analyzer::FunctionCallAnalyzer;
+use crate::import_analyzer::ImportAnalyzer;
+use crate::types::{Result, ViewAnalysisError, ViewCall, ViewImportType};
 #[cfg(test)]
 use std::collections::HashMap;
 use tempest_php_parser::PhpParser;

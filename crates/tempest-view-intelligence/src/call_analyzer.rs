@@ -1,5 +1,5 @@
-use crate::view_intelligence::ast_traversal::AstTraversal;
-use crate::view_intelligence::types::{Result, ViewAnalysisError, ViewCall, ViewParameter};
+use crate::ast_traversal::AstTraversal;
+use crate::types::{Result, ViewAnalysisError, ViewCall, ViewParameter};
 use tree_sitter::{Node, Tree};
 
 pub struct FunctionCallAnalyzer;

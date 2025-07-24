@@ -1,4 +1,4 @@
-use crate::view_intelligence::types::{ViewAnalysisResult, ViewImportType};
+use crate::types::{ViewAnalysisResult, ViewImportType};
 use lsp_types::MessageType;
 use std::collections::HashMap;
 use tower_lsp_server::Client;

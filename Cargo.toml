@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/tempest-language-server", "crates/tempest-php-parser"]
+members = ["crates/tempest-language-server", "crates/tempest-php-parser", "crates/tempest-view-intelligence"]
 
 [workspace.package]
 version = "0.1.0"

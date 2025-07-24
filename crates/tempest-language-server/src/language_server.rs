@@ -1,5 +1,4 @@
 use crate::document::Document;
-use crate::view_intelligence::ViewIntelligence;
 use dashmap::DashMap;
 use lsp_types::{
     DidCloseTextDocumentParams, DidOpenTextDocumentParams, InitializeParams, InitializeResult,
@@ -8,6 +7,7 @@ use lsp_types::{
 };
 use std::process::exit;
 use tempest_php_parser::PhpParser;
+use tempest_view_intelligence::ViewIntelligence;
 use tower_lsp_server::jsonrpc::Result;
 use tower_lsp_server::{Client, LanguageServer};
 

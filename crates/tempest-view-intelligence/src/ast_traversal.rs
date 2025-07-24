@@ -1,4 +1,4 @@
-use crate::view_intelligence::types::{Result, ViewAnalysisError};
+use crate::types::{Result, ViewAnalysisError};
 use tree_sitter::{Node, Tree};
 
 pub struct AstTraversal;

@@ -15,7 +15,6 @@ name = "tempest-ls"
 path = "src/main.rs"
 
 [dependencies]
-camino = { workspace = true}
 clap = { version = "4.5.41", features = ["derive"] }
 dashmap = "6.1.0"
 lsp-types = "0.97.0"
@@ -23,4 +22,4 @@ tokio = { version = "1.46.1", features = ["full"] }
 tower-lsp-server = "0.22.0"
 tree-sitter = "0.25.8"
 tempest-php-parser = { path = "../tempest-php-parser" }
-pathdiff = "0.2.3"
+tempest-view-intelligence = { path = "../tempest-view-intelligence" }

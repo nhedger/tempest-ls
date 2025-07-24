@@ -9,11 +9,14 @@ mod formatter;
 mod import_analyzer;
 mod types;
 
-// Re-export main public types (others available via full path if needed)
-use call_analyzer::FunctionCallAnalyzer;
+// Re-export main public types and analyzers for external use
+pub use call_analyzer::FunctionCallAnalyzer;
 use formatter::ViewAnalysisFormatter;
-use import_analyzer::ImportAnalyzer;
-pub use types::ViewAnalysisResult;
+pub use import_analyzer::ImportAnalyzer;
+pub use types::{
+    ImportInfo, Result, ViewAnalysisError, ViewAnalysisResult, ViewCall, ViewImportType,
+    ViewParameter,
+};
 
 // Tests module
 #[cfg(test)]
@@ -23,7 +26,6 @@ mod tests;
 pub struct ViewIntelligence;
 
 impl ViewIntelligence {
-    /// Analyze a document for Tempest view function usage
     pub async fn analyze_document(client: &Client, tree: &Tree, text: &str, uri: &str) {
         let mut result = ViewAnalysisResult::new();
 
@@ -59,5 +61,35 @@ impl ViewIntelligence {
             .collect();
 
         ViewAnalysisFormatter::log_analysis_results(client, &result, uri).await;
+    }
+
+    /// Find Tempest view() calls in a document (without LSP client dependency)
+    /// Returns a Result containing the view calls found in the document
+    pub fn find_view_calls(tree: &Tree, text: &str) -> Result<Vec<ViewCall>> {
+        let imports = ImportAnalyzer::analyze_imports(tree, text)?;
+        let all_calls = FunctionCallAnalyzer::find_function_calls(tree, text)?;
+
+        let view_calls = all_calls
+            .into_iter()
+            .filter(|call| imports.contains_key(&call.function_name))
+            .collect();
+
+        Ok(view_calls)
+    }
+
+    /// Get complete analysis result for a document (without LSP client dependency)
+    /// Returns both imports and filtered view calls
+    pub fn analyze(tree: &Tree, text: &str) -> Result<ViewAnalysisResult> {
+        let mut result = ViewAnalysisResult::new();
+
+        result.imports = ImportAnalyzer::analyze_imports(tree, text)?;
+        let all_calls = FunctionCallAnalyzer::find_function_calls(tree, text)?;
+
+        result.calls = all_calls
+            .into_iter()
+            .filter(|call| result.imports.contains_key(&call.function_name))
+            .collect();
+
+        Ok(result)
     }
 }

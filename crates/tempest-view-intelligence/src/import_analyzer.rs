@@ -1,5 +1,5 @@
-use crate::view_intelligence::ast_traversal::AstTraversal;
-use crate::view_intelligence::types::{ImportInfo, Result, ViewAnalysisError, ViewImportType};
+use crate::ast_traversal::AstTraversal;
+use crate::types::{ImportInfo, Result, ViewAnalysisError, ViewImportType};
 use std::collections::HashMap;
 use tree_sitter::{Node, Tree};
 
